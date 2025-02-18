@@ -28,7 +28,7 @@
     "minimum-stability": "dev",
 	"prefer-stable": true,
     "require": {
-        "leafs/aloe": "^1.1",
+        "leafs/aloe": "*",
         "predis/predis": "^2.0"
     }
 }
