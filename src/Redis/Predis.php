@@ -86,6 +86,11 @@ class Predis implements Adapter
         return $this->errors;
     }
 
+    public function connection()
+    {
+        return $this->redis;
+    }
+
     public function close()
     {
         $this->redis->disconnect();

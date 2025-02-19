@@ -81,6 +81,13 @@ interface Adapter
     public function errors(): array;
 
     /**
+     * Get the redis connection
+     *
+     * @return mixed
+     */
+    public function connection();
+
+    /**
      * Close the redis connection
      *
      * @return void

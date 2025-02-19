@@ -143,7 +143,7 @@ class Redis
      * @link https://redis.io/commands/set
      * @since If you're using Redis >= 2.6.12, you can pass extended options as explained in example
      */
-    public function set($key, $value = "", $timeout = null)
+    public function set($key, $value = "", $timeout = 0)
     {
         return $this->connection()->set($key, $value, $timeout);
     }
@@ -245,7 +245,7 @@ class Redis
      */
     public function connection(): Adapter
     {
-        if (!$this->redis) {
+        if (!$this->redis->connection()) {
             $this->redis->connect($this->config);
         }
 
