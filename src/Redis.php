@@ -2,161 +2,134 @@
 
 namespace Leaf;
 
+use Leaf\Redis\Adapter;
+
 /**
  * Leaf + Redis [BETA]
  * ----------
  * Redis made crazy simple
- * 
+ *
  * @since 2.5.1
  * @author Michael Darko <mickdd22@gmail.com>
- * @version 1.0.0-beta
+ * @version 4.0.0-beta
  */
 class Redis
 {
-    /** @var \Redis */
-    private static $redis;
+    /** @var Adapter */
+    protected $redis;
 
     /**
      * Leaf Redis config
      * @var array
      */
-    private static $config = [
-        "host" => "127.0.0.1",
-        "port" => 6379,
-        "connection.timeout" => 0.0,
-        "connection.reserved" => null,
-        "connection.retryInterval" => 0,
-        "connection.readTimeout" => 0.0,
-        "password" => null,
-        "session" => false,
-        "session.savePath" => null,
-        "session.saveOptions" => [],
+    protected $config = [
+        'port' => 6379,
+        'scheme' => 'tcp',
+        'password' => null,
+        'host' => '127.0.0.1',
+
+        'session' => false,
+        'session.savePath' => null,
+        'session.saveOptions' => [],
+
+        'connection.timeout' => 0.0,
+        'connection.reserved' => null,
+        'connection.retryInterval' => 0,
+        'connection.readTimeout' => 0.0,
     ];
 
-    /**
-     * All errors caught in the app
-     */
-    private static $errors = [];
+    public function __construct()
+    {
+        $this->redis = (class_exists('Predis\Client')) ? new Redis\Predis() : new Redis\Native();
+    }
 
     /**
      * Initialize redis and connect to redis instance
-     * 
+     *
      * @param array $config Configuration for the redis instance.
+     * @return \Leaf\Redis
      */
-    public static function init(array $config = [])
+    public function connect(array $config = [])
     {
-        static::$config = array_merge(static::$config, $config);
+        $this->config = array_merge($this->config, $config);
 
-        try {
-            $redis = new \Redis();
-        } catch (\Throwable $th) {
-            trigger_error($th);
-        }
-        
-        try {
-            $redis->connect(
-                static::$config["host"],
-                static::$config["port"],
-                static::$config["connection.timeout"],
-                static::$config["connection.reserved"],
-                static::$config["connection.retryInterval"],
-                static::$config["connection.readTimeout"]
-            );
-        } catch (\Throwable $th) {
-            trigger_error($th);
-        }
+        $this->redis->connect($this->config);
 
-        if (static::$config["password"]) {
-            try {
-                $redis->auth(static::$config["password"]);
-            } catch (\Throwable $th) {
-                trigger_error($th);
-            }
-        }
-
-        if (
-            static::$config["session.saveOptions"] &&
-            count(static::$config["session.saveOptions"]) > 0
-        ) {
+        if (!empty($this->config['session.saveOptions'])) {
             static::parseSaveOptions();
         }
 
-        if (static::$config["session"] === true) {
+        if ($this->config['session'] === true) {
             static::setSessionHandler();
         }
 
-        static::$redis = $redis;
-
-        return $redis;
+        return $this;
     }
 
-    protected static function setSessionHandler()
+    protected function setSessionHandler()
     {
-        if (!static::$config["session.savePath"]) {
-            static::$config["session.savePath"] = "tcp://" . static::$config["host"] . ":" . static::$config["port"];
+        if (!$this->config['session.savePath']) {
+            $this->config['session.savePath'] = 'tcp://' . $this->config['host'] . ':' . $this->config['port'];
 
-            if (
-                static::$config["session.saveOptions"] &&
-                count(static::$config["session.saveOptions"]) > 0
-            ) {
-                static::$config["session.savePath"] .= static::$config["session.saveOptions"][0];
+            if (!empty($this->config['session.saveOptions'])) {
+                $this->config['session.savePath'] .= $this->config['session.saveOptions'][0];
             }
         } else {
-            if (is_array(static::$config["session.savePath"])) {
-                $fullPath = "";
+            if (is_array($this->config['session.savePath'])) {
+                $fullPath = '';
 
-                foreach (static::$config["session.savePath"] as $index => $savePath) {
+                foreach ($this->config['session.savePath'] as $index => $savePath) {
                     $fullPath .= $savePath;
 
-                    if (
-                        static::$config["session.saveOptions"] &&
-                        isset(static::$config["session.saveOptions"][$index])
-                    ) {
-                        $fullPath .= static::$config["session.saveOptions"][$index];
+                    if ($this->config['session.saveOptions'][$index] ?? false) {
+                        $fullPath .= $this->config['session.saveOptions'][$index];
                     }
 
-                    if (($index + 1) < count(static::$config["session.savePath"])) {
-                        $fullPath .= ", ";
+                    if (($index + 1) < count($this->config['session.savePath'])) {
+                        $fullPath .= ', ';
                     }
                 }
 
-                static::$config["session.savePath"] = $fullPath;
+                $this->config['session.savePath'] = $fullPath;
             }
         }
 
-        ini_set("session.save_handler", "redis");
-        ini_set("session.save_path", static::$config["session.savePath"]);
+        ini_set('session.save_handler', 'redis');
+        ini_set('session.save_path', $this->config['session.savePath']);
     }
 
-    protected static function parseSaveOptions()
+    protected function parseSaveOptions()
     {
         $parsedOptions = [];
 
-        foreach (static::$config["session.saveOptions"] as $options) {
+        foreach ($this->config['session.saveOptions'] as $options) {
             $optionKeys = array_keys($options);
-            $option = "";
+            $option = '';
 
             foreach ($optionKeys as $optionIndex => $optionValue) {
-                if ($optionIndex == 0) {
-                    $option .= "?{$optionValue}={$options[$optionValue]}";
-                } else {
-                    $option .= "&{$optionValue}={$options[$optionValue]}";
+                switch ($optionIndex) {
+                    case 0:
+                        $option .= "?{$optionValue}={$options[$optionValue]}";
+                        break;
+                    default:
+                        $option .= "&{$optionValue}={$options[$optionValue]}";
+                        break;
                 }
             }
 
             $parsedOptions[] = $option;
         }
 
-        static::$config["session.saveOptions"] = $parsedOptions;
+        $this->config['session.saveOptions'] = $parsedOptions;
     }
 
     /**
      * Set a redis value
-     * 
+     *
      * @param string|array $key The value(s) to set
      * @param string|mixed $value — string if not used serializer
      * @param int|array $timeout [optional] Calling setex() is preferred if you want a timeout.
-     * 
+     *
      * Since 2.6.12 it also supports different flags inside an array. Example ['NX', 'EX' => 60]
      * - EX seconds -- Set the specified expire time, in seconds.
      * - PX milliseconds -- Set the specified expire time, in milliseconds.
@@ -170,39 +143,69 @@ class Redis
      * @link https://redis.io/commands/set
      * @since If you're using Redis >= 2.6.12, you can pass extended options as explained in example
      */
-    public static function set($key, $value = "", $timeout = null)
+    public function set($key, $value = "", $timeout = null)
     {
-        if (is_array($key)) {
-            foreach ($key as $itemKey => $itemValue) {
-                static::set($itemKey, $itemValue, $timeout);
-            }
-        } else {
-            static::$redis->set($key, $value, $timeout);
-        }
+        return $this->redis->set($key, $value, $timeout);
     }
 
     /**
      * Get a redis value
-     * 
+     *
      * @param string|array $key The value(s) to get
      * @return string|mixed|false
      * If key didn't exist, FALSE is returned. Otherwise, the value related to this key is returned
-     * 
+     *
      * @link https://redis.io/commands/get
      */
-    public static function get($key)
+    public function get($key)
     {
-        if (is_string($key)) {
-            return static::$redis->get($key);
-        }
+        return $this->redis->get($key);
+    }
 
-        $data = [];
+    /**
+     * Delete a key from redis
+     *
+     * @param string|array $key The key to delete
+     * @return bool
+     * @link https://redis.io/commands/del
+     */
+    public function delete($key): bool
+    {
+        return $this->redis->delete($key);
+    }
 
-        foreach ($key as $item) {
-            $data[$item] = static::get($item);
-        }
+    /**
+     * Check if a key exists in redis
+     *
+     * @param string $key The key to check
+     * @return bool
+     * @link https://redis.io/commands/exists
+     */
+    public function exists(string $key): bool
+    {
+        return $this->redis->exists($key);
+    }
 
-        return $data;
+    /**
+     * Get all keys in redis
+     *
+     * @return array
+     * @link https://redis.io/commands/keys
+     */
+    public function keys(): array
+    {
+        return $this->redis->keys();
+    }
+
+    /**
+     * Flush all keys in redis
+     *
+     * @return bool
+     * @link https://redis.io/commands/flushall
+     */
+    public function flush(): bool
+    {
+        return $this->redis->flush();
     }
 
     /**
@@ -211,33 +214,47 @@ class Redis
      * @param string|null $message — [optional]
      * @return bool|string
      * TRUE if the command is successful or returns message Throws a RedisException object on connectivity error, as described above
-     * @throws \RedisException
+     * @throws \Exception
      * @link https://redis.io/commands/ping
      */
-    public static function ping(string $message = null)
+    public function ping(?string $message = null)
     {
-        return static::$redis->ping($message);
+        return $this->redis->ping($message);
     }
 
     /**
      * Return all saved errors
      */
-    public static function errors(): array
+    public function errors(): array
     {
-        return static::$errors;
+        return $this->redis->errors();
+    }
+
+    /**
+     * Close the redis connection
+     * @return void
+     */
+    public function close()
+    {
+        $this->redis->close();
+    }
+
+    /**
+     * Get the redis connection
+     * @return Adapter
+     */
+    public function connection(): Adapter
+    {
+        return $this->redis;
     }
 
     /**
      * Get all leaf redis console commands
      */
-    public static function commands(): array
+    public function commands(): array
     {
-        require __DIR__ . "/Commands/InstallCommand.php";
-        require __DIR__ . "/Commands/ServerCommand.php";
-
         return [
-            Redis\Commands\InstallCommand::class,
-            Redis\Commands\ServerCommand::class,
+            Redis\Commands\ServeCommand::class,
         ];
     }
 }
