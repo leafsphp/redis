@@ -53,8 +53,6 @@ class Redis
     {
         $this->config = array_merge($this->config, $config);
 
-        $this->redis->connect($this->config);
-
         if (!empty($this->config['session.saveOptions'])) {
             static::parseSaveOptions();
         }
@@ -68,6 +66,8 @@ class Redis
 
     protected function setSessionHandler()
     {
+        $this->redis->connect($this->config);
+
         if (!$this->config['session.savePath']) {
             $this->config['session.savePath'] = 'tcp://' . $this->config['host'] . ':' . $this->config['port'];
 
@@ -145,7 +145,7 @@ class Redis
      */
     public function set($key, $value = "", $timeout = null)
     {
-        return $this->redis->set($key, $value, $timeout);
+        return $this->connection()->set($key, $value, $timeout);
     }
 
     /**
@@ -159,7 +159,7 @@ class Redis
      */
     public function get($key)
     {
-        return $this->redis->get($key);
+        return $this->connection()->get($key);
     }
 
     /**
@@ -171,7 +171,7 @@ class Redis
      */
     public function delete($key): bool
     {
-        return $this->redis->delete($key);
+        return $this->connection()->delete($key);
     }
 
     /**
@@ -183,7 +183,7 @@ class Redis
      */
     public function exists(string $key): bool
     {
-        return $this->redis->exists($key);
+        return $this->connection()->exists($key);
     }
 
     /**
@@ -194,7 +194,7 @@ class Redis
      */
     public function keys(): array
     {
-        return $this->redis->keys();
+        return $this->connection()->keys();
     }
 
     /**
@@ -205,7 +205,7 @@ class Redis
      */
     public function flush(): bool
     {
-        return $this->redis->flush();
+        return $this->connection()->flush();
     }
 
     /**
@@ -219,7 +219,7 @@ class Redis
      */
     public function ping(?string $message = null)
     {
-        return $this->redis->ping($message);
+        return $this->connection()->ping($message);
     }
 
     /**
@@ -227,7 +227,7 @@ class Redis
      */
     public function errors(): array
     {
-        return $this->redis->errors();
+        return $this->connection()->errors();
     }
 
     /**
@@ -236,7 +236,7 @@ class Redis
      */
     public function close()
     {
-        $this->redis->close();
+        $this->connection()->close();
     }
 
     /**
@@ -245,6 +245,10 @@ class Redis
      */
     public function connection(): Adapter
     {
+        if (!$this->redis) {
+            $this->redis->connect($this->config);
+        }
+
         return $this->redis;
     }
 
