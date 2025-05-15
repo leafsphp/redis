@@ -69,7 +69,11 @@ class Redis
         $this->redis->connect($this->config);
 
         if (!$this->config['session.savePath']) {
-            $this->config['session.savePath'] = 'tcp://' . $this->config['host'] . ':' . $this->config['port'];
+            $this->config['session.savePath'] = $this->config['host'] . ':' . $this->config['port'];
+
+            if ($this->config['password']) {
+                $this->config['session.savePath'] .= '?auth=' . $this->config['password'];
+            }
 
             if (!empty($this->config['session.saveOptions'])) {
                 $this->config['session.savePath'] .= $this->config['session.saveOptions'][0];
