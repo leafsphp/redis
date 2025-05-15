@@ -100,6 +100,10 @@ class Redis
 
         ini_set('session.save_handler', 'redis');
         ini_set('session.save_path', $this->config['session.savePath']);
+
+        if (function_exists('auth')) {
+            ini_set('session.gc_maxlifetime', auth()->config('session.lifetime'));
+        }
     }
 
     protected function parseSaveOptions()
