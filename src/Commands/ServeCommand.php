@@ -2,19 +2,14 @@
 
 namespace Leaf\Redis\Commands;
 
-use Aloe\Command;
+use Leaf\Sprout\Command;
 
 class ServeCommand extends Command
 {
-    protected static $defaultName = 'redis:serve';
-    public $description = 'Start redis server';
-    public $help = 'Start redis server';
-
-    protected function config()
-    {
-        $this->setOption('port', 'p', 'optional', 'Port to run redis server on', 6379);
-        // $this->setArgument('config', 'optional', 'path/to/redis.conf');
-    }
+    protected $signature = 'redis:serve
+        {--p|port=6379 : Port to run redis server on (default: 6379)}';
+    protected $description = 'Start redis server';
+    protected $help = 'Start redis server';
 
     protected function handle()
     {
@@ -26,7 +21,7 @@ class ServeCommand extends Command
 
         // $config = $config ?? "Default";
 
-        $this->writeln('Redis Server started on port ' . asComment((string) $port));
+        $this->writeln("Redis Server started on port <comment>$port</comment>");
         $this->info("Happy gardening!!\n");
         $this->comment("
                         _._
