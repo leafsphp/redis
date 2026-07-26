@@ -32,5 +32,10 @@
     "prefer-stable": true,
     "require": {
         "leafs/sprout": "*"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-v5.x": "5.0.x-dev"
+        }
     }
 }
