@@ -59,6 +59,41 @@ interface Adapter
     public function keys(): array;
 
     /**
+     * Increment a key's integer value
+     *
+     * @param string $key The key to increment
+     * @param int $by Amount to increment by
+     * @return int The new value
+     */
+    public function increment(string $key, int $by = 1): int;
+
+    /**
+     * Decrement a key's integer value
+     *
+     * @param string $key The key to decrement
+     * @param int $by Amount to decrement by
+     * @return int The new value
+     */
+    public function decrement(string $key, int $by = 1): int;
+
+    /**
+     * Set a time to live on an existing key
+     *
+     * @param string $key The key to expire
+     * @param int $seconds Seconds until the key expires
+     * @return bool
+     */
+    public function expire(string $key, int $seconds): bool;
+
+    /**
+     * Get the remaining time to live of a key
+     *
+     * @param string $key The key to check
+     * @return int Seconds remaining, -1 if no ttl, -2 if the key doesn't exist
+     */
+    public function ttl(string $key): int;
+
+    /**
      * Flush all keys in redis
      *
      * @return bool

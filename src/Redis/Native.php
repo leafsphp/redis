@@ -2,8 +2,6 @@
 
 namespace Leaf\Redis;
 
-use Leaf\Redis\Adapter;
-
 /**
  * Native Redis Adapter
  * -------------
@@ -72,6 +70,26 @@ class Native implements Adapter
     public function keys(): array
     {
         return $this->redis->keys('*');
+    }
+
+    public function increment(string $key, int $by = 1): int
+    {
+        return (int) $this->redis->incrBy($key, $by);
+    }
+
+    public function decrement(string $key, int $by = 1): int
+    {
+        return (int) $this->redis->decrBy($key, $by);
+    }
+
+    public function expire(string $key, int $seconds): bool
+    {
+        return (bool) $this->redis->expire($key, $seconds);
+    }
+
+    public function ttl(string $key): int
+    {
+        return (int) $this->redis->ttl($key);
     }
 
     public function flush(): bool

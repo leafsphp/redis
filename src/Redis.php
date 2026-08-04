@@ -38,9 +38,9 @@ class Redis
         'connection.readTimeout' => 0.0,
     ];
 
-    public function __construct()
+    public function __construct(?Adapter $adapter = null)
     {
-        $this->redis = (class_exists('Predis\Client')) ? new Redis\Predis() : new Redis\Native();
+        $this->redis = $adapter ?? (class_exists('Predis\Client') ? new Redis\Predis() : new Redis\Native());
     }
 
     /**
@@ -76,7 +76,13 @@ class Redis
             }
 
             if (!empty($this->config['session.saveOptions'])) {
-                $this->config['session.savePath'] .= $this->config['session.saveOptions'][0];
+                $option = $this->config['session.saveOptions'][0];
+
+                // options already start with '?' — continue with '&' when
+                // the auth query string opened the parameters
+                $this->config['session.savePath'] .= $this->config['password']
+                    ? '&' . ltrim($option, '?')
+                    : $option;
             }
         } else {
             if (is_array($this->config['session.savePath'])) {
@@ -118,9 +124,11 @@ class Redis
                 switch ($optionIndex) {
                     case 0:
                         $option .= "?{$optionValue}={$options[$optionValue]}";
+
                         break;
                     default:
                         $option .= "&{$optionValue}={$options[$optionValue]}";
+
                         break;
                 }
             }
@@ -151,8 +159,12 @@ class Redis
      * @link https://redis.io/commands/set
      * @since If you're using Redis >= 2.6.12, you can pass extended options as explained in example
      */
-    public function set($key, $value = "", $timeout = 0)
+    public function set($key, $value = '', $timeout = 0)
     {
+        if (function_exists('crash')) {
+            crash()->leaveCrumb('redis set: ' . (is_array($key) ? implode(',', array_keys($key)) : $key), 'cache', [], false);
+        }
+
         return $this->connection()->set($key, $value, $timeout);
     }
 
@@ -167,7 +179,14 @@ class Redis
      */
     public function get($key)
     {
-        return $this->connection()->get($key);
+        $value = $this->connection()->get($key);
+
+        // misses are journey-worthy, hits are noise
+        if ($value === false && !is_array($key) && function_exists('crash')) {
+            crash()->leaveCrumb("redis miss: $key", 'cache', [], false);
+        }
+
+        return $value;
     }
 
     /**
@@ -179,6 +198,10 @@ class Redis
      */
     public function delete($key): bool
     {
+        if (function_exists('crash')) {
+            crash()->leaveCrumb('redis delete: ' . implode(',', (array) $key), 'cache', [], false);
+        }
+
         return $this->connection()->delete($key);
     }
 
@@ -203,6 +226,57 @@ class Redis
     public function keys(): array
     {
         return $this->connection()->keys();
+    }
+
+    /**
+     * Increment a key's integer value
+     *
+     * @param string $key The key to increment
+     * @param int $by Amount to increment by
+     * @return int The new value
+     * @link https://redis.io/commands/incrby
+     */
+    public function increment(string $key, int $by = 1): int
+    {
+        return $this->connection()->increment($key, $by);
+    }
+
+    /**
+     * Decrement a key's integer value
+     *
+     * @param string $key The key to decrement
+     * @param int $by Amount to decrement by
+     * @return int The new value
+     * @link https://redis.io/commands/decrby
+     */
+    public function decrement(string $key, int $by = 1): int
+    {
+        return $this->connection()->decrement($key, $by);
+    }
+
+    /**
+     * Set a time to live on an existing key
+     *
+     * @param string $key The key to expire
+     * @param int $seconds Seconds until the key expires
+     * @return bool
+     * @link https://redis.io/commands/expire
+     */
+    public function expire(string $key, int $seconds): bool
+    {
+        return $this->connection()->expire($key, $seconds);
+    }
+
+    /**
+     * Get the remaining time to live of a key
+     *
+     * @param string $key The key to check
+     * @return int Seconds remaining, -1 if no ttl, -2 if the key doesn't exist
+     * @link https://redis.io/commands/ttl
+     */
+    public function ttl(string $key): int
+    {
+        return $this->connection()->ttl($key);
     }
 
     /**
@@ -258,6 +332,19 @@ class Redis
         }
 
         return $this->redis;
+    }
+
+    /**
+     * Pass any other redis command straight to the underlying client,
+     * eg. redis()->hSet('user:1', 'name', 'leaf')
+     *
+     * @param string $method The redis command to run
+     * @param array $args Arguments for the command
+     * @return mixed
+     */
+    public function __call($method, $args)
+    {
+        return $this->connection()->{$method}(...$args);
     }
 
     /**

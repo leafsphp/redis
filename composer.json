@@ -31,11 +31,35 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
+        "php": "^8.2",
         "leafs/sprout": "*"
     },
     "extra": {
         "branch-alias": {
             "dev-v5.x": "5.0.x-dev"
         }
+    },
+    "require-dev": {
+        "leafs/alchemy": "v5.x-dev",
+        "friendsofphp/php-cs-fixer": "^3.66",
+        "pestphp/pest": "*",
+        "predis/predis": "^3.5"
+    },
+    "scripts": {
+        "alchemy": "@php vendor/bin/alchemy all",
+        "test": "@php vendor/bin/alchemy test",
+        "lint": "@php vendor/bin/alchemy lint",
+        "fmt": "@php vendor/bin/alchemy fmt",
+        "analyse": "@php vendor/bin/alchemy analyse",
+        "refactor": "@php vendor/bin/alchemy refactor",
+        "ci": "@php vendor/bin/alchemy ci"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "suggest": {
+        "predis/predis": "Pure-php redis client, used automatically when installed (no phpredis extension needed)"
     }
 }

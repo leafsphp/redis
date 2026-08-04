@@ -2,8 +2,6 @@
 
 namespace Leaf\Redis;
 
-use Leaf\Redis\Adapter;
-
 /**
  * Predis Redis Adapter
  * -------------
@@ -23,16 +21,28 @@ class Predis implements Adapter
         $this->config = $config;
 
         try {
-            $this->redis = new \Predis\Client([
+            $parameters = [
                 'scheme' => $this->config['scheme'],
                 'host' => $this->config['host'],
                 'port' => $this->config['port'],
-                'password' => $this->config['password'],
-                'timeout' => $this->config['connection.timeout'],
-                'reserved' => $this->config['connection.reserved'],
-                'retry_interval' => $this->config['connection.retryInterval'],
-                'read_write_timeout' => $this->config['connection.readTimeout'],
-            ]);
+            ];
+
+            if ($this->config['password']) {
+                $parameters['password'] = $this->config['password'];
+            }
+
+            // a 0.0 timeout means "no timeout" for phpredis, but predis reads
+            // it literally and every connect dies instantly — only pass the
+            // timeouts when they were actually configured
+            if (($this->config['connection.timeout'] ?? 0) > 0) {
+                $parameters['timeout'] = $this->config['connection.timeout'];
+            }
+
+            if (($this->config['connection.readTimeout'] ?? 0) > 0) {
+                $parameters['read_write_timeout'] = $this->config['connection.readTimeout'];
+            }
+
+            $this->redis = new \Predis\Client($parameters);
         } catch (\Throwable $th) {
             trigger_error($th);
         }
@@ -58,12 +68,12 @@ class Predis implements Adapter
 
     public function delete($key): bool
     {
-        return $this->redis->del($key);
+        return (bool) $this->redis->del($key);
     }
 
     public function exists(string $key): bool
     {
-        return $this->redis->exists($key);
+        return (bool) $this->redis->exists($key);
     }
 
     public function keys(): array
@@ -71,14 +81,38 @@ class Predis implements Adapter
         return $this->redis->keys('*');
     }
 
+    public function increment(string $key, int $by = 1): int
+    {
+        return (int) $this->redis->incrby($key, $by);
+    }
+
+    public function decrement(string $key, int $by = 1): int
+    {
+        return (int) $this->redis->decrby($key, $by);
+    }
+
+    public function expire(string $key, int $seconds): bool
+    {
+        return (bool) $this->redis->expire($key, $seconds);
+    }
+
+    public function ttl(string $key): int
+    {
+        return (int) $this->redis->ttl($key);
+    }
+
     public function flush(): bool
     {
-        return $this->redis->flushdb();
+        return ((string) $this->redis->flushdb()) === 'OK';
     }
 
     public function ping(?string $message = null)
     {
-        return $this->redis->ping($message);
+        if ($message !== null) {
+            return $this->redis->ping($message);
+        }
+
+        return ((string) $this->redis->ping()) === 'PONG';
     }
 
     public function errors(): array
