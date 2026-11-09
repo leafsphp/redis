@@ -27,6 +27,10 @@ class Predis implements Adapter
                 'port' => $this->config['port'],
             ];
 
+            if ($this->config['username']) {
+                $parameters['username'] = $this->config['username'];
+            }
+
             if ($this->config['password']) {
                 $parameters['password'] = $this->config['password'];
             }
